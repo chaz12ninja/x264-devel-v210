@@ -32,6 +32,9 @@
 #if HAVE_MALLOC_H
 #include <malloc.h>
 #endif
+#if HAVE_THP
+#include <sys/mman.h>
+#endif
 
 const int x264_bit_depth = BIT_DEPTH;
 
@@ -1183,7 +1186,19 @@ void *x264_malloc( int i_size )
 {
     uint8_t *align_buf = NULL;
 #if HAVE_MALLOC_H
-    align_buf = memalign( NATIVE_ALIGN, i_size );
+#if HAVE_THP
+#define HUGE_PAGE_SIZE 2*1024*1024
+    /* Attempt to allocate huge pages to reduce TLB misses. */
+    if ( i_size > 7*HUGE_PAGE_SIZE/8 ) /* FIXME: Is this threshold optimal? */
+    {
+        align_buf = memalign( HUGE_PAGE_SIZE, i_size );
+        if( align_buf )
+            madvise( align_buf, i_size, MADV_HUGEPAGE );
+    }
+    else
+#undef HUGE_PAGE_SIZE
+#endif
+        align_buf = memalign( NATIVE_ALIGN, i_size );
 #else
     uint8_t *buf = malloc( i_size + (NATIVE_ALIGN-1) + sizeof(void **) );
     if( buf )
