@@ -671,6 +671,8 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     }
     OPT("bluray-compat")
         p->b_bluray_compat = atobool(value);
+    OPT("avcintra-compat")
+        b_error |= parse_enum( value, x264_avci_names, &p->i_avcintra_compat );
     OPT("sar")
     {
         b_error = ( 2 != sscanf( value, "%d:%d", &p->vui.i_sar_width, &p->vui.i_sar_height ) &&

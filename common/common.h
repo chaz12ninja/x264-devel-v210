@@ -109,6 +109,11 @@ do {\
 
 #define NALU_OVERHEAD 5 // startcode + NAL type costs 5 bytes per frame
 #define FILLER_OVERHEAD (NALU_OVERHEAD+1)
+#define SEI_OVERHEAD (NALU_OVERHEAD - (h->param.b_annexb && !h->param.i_avcintra_compat && (h->out.i_nal-1)))
+
+/* Disabled for AVC-Intra compat, but forced on otherwise.
+ * Internal only. */
+#define X264_ANALYSE_I16x16     0x0004
 
 /****************************************************************************
  * Includes
