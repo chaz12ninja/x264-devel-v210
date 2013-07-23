@@ -145,6 +145,7 @@ static int convert_csp_to_pix_fmt( int csp )
         case X264_CSP_YV12: /* specially handled via swapping chroma */
         case X264_CSP_I420: return csp&X264_CSP_HIGH_DEPTH ? PIX_FMT_YUV420P16 : PIX_FMT_YUV420P;
         case X264_CSP_YV16: /* specially handled via swapping chroma */
+        case X264_CSP_V210: /* specially handled via inbuilt deinterleaving */
         case X264_CSP_I422: return csp&X264_CSP_HIGH_DEPTH ? PIX_FMT_YUV422P16 : PIX_FMT_YUV422P;
         case X264_CSP_YV24: /* specially handled via swapping chroma */
         case X264_CSP_I444: return csp&X264_CSP_HIGH_DEPTH ? PIX_FMT_YUV444P16 : PIX_FMT_YUV444P;

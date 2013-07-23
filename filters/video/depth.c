@@ -53,7 +53,8 @@ static int depth_filter_csp_is_supported( int csp )
            csp_mask == X264_CSP_NV16 ||
            csp_mask == X264_CSP_BGR ||
            csp_mask == X264_CSP_RGB ||
-           csp_mask == X264_CSP_BGRA;
+           csp_mask == X264_CSP_BGRA ||
+           csp_mask == X264_CSP_V210;
 }
 
 static int csp_num_interleaved( int csp, int plane )
@@ -162,15 +163,18 @@ static int get_frame( hnd_t handle, cli_pic_t *output, int frame )
     if( h->prev_filter.get_frame( h->prev_hnd, output, frame ) )
         return -1;
 
-    if( h->bit_depth < 16 && output->img.csp & X264_CSP_HIGH_DEPTH )
+    if( ( output->img.csp & X264_CSP_MASK ) != X264_CSP_V210 )
     {
-        dither_image( &h->buffer.img, &output->img, h->error_buf );
-        output->img = h->buffer.img;
-    }
-    else if( h->bit_depth > 8 && !(output->img.csp & X264_CSP_HIGH_DEPTH) )
-    {
-        scale_image( &h->buffer.img, &output->img );
-        output->img = h->buffer.img;
+        if( h->bit_depth < 16 && output->img.csp & X264_CSP_HIGH_DEPTH )
+        {
+            dither_image( &h->buffer.img, &output->img, h->error_buf );
+            output->img = h->buffer.img;
+        }
+        else if( h->bit_depth > 8 && !(output->img.csp & X264_CSP_HIGH_DEPTH) )
+        {
+            scale_image( &h->buffer.img, &output->img );
+            output->img = h->buffer.img;
+        }
     }
     return 0;
 }

@@ -60,6 +60,11 @@ tap1: times 4 dw  1, -5
 tap2: times 4 dw 20, 20
 tap3: times 4 dw -5,  1
 
+v210_mask: times 4 dd 0x3ff
+v210_mult: dw 64,4,64,4,64,4,64,4
+v210_luma_shuf: db 8,9,0,1,2,3,12,13,4,5,6,7,-1,-1,-1,-1
+v210_chroma_shuf: db 0,1,2,3,8,9,4,5,6,7,12,13,-1,-1,-1,-1	
+
 SECTION .text
 
 cextern pb_0
@@ -1195,6 +1200,45 @@ cglobal load_deinterleave_chroma_fdec, 4,4
     RET
 %endmacro ; PLANE_DEINTERLEAVE
 
+%macro PLANE_DEINTERLEAVE_V210 0
+;-----------------------------------------------------------------------------
+; void x264_plane_copy_deinterleave_v210_core( pixel *dsty,
+;                                              pixel *dstc,
+;                                              uint32_t *src, int w)
+;-----------------------------------------------------------------------------
+cglobal plane_copy_deinterleave_v210_core, 4, 4, 5
+    movsxdifnidn r3, r3d
+    lea    r0, [r0+2*r3]
+    lea    r1, [r1+2*r3]
+    neg    r3
+
+    mova   m3, [v210_mult]
+    mova   m4, [v210_mask]
+    mova   m5, [v210_luma_shuf]
+    mova   m6, [v210_chroma_shuf]
+.loop
+    mova   m0, [r2]
+
+    pmullw m1, m0, m3
+    psrld  m0, 10
+    psrlw  m1, 6  ; u0 v0 y1 y2 v1 u2 y4 y5
+    pand   m0, m4 ; y0 __ u1 __ y3 __ v2 __
+
+    shufps m2, m1, m0, 0x8d ; y1 y2 y4 y5 y0 __ y3 __
+    pshufb m2, m5 ; y0 y1 y2 y3 y4 y5 __ __
+    movu   [r0+2*r3], m2
+
+    shufps m1, m0, 0xd8 ; u0 v0 v1 u2 u1 __ v2 __
+    pshufb m1, m6 ; u0 v0 u1 v1 u2 v2 __ __
+    movu   [r1+2*r3], m1
+
+    add r2, mmsize
+    add r3, 6
+    jl  .loop
+
+    RET
+%endmacro ; PLANE_DEINTERLEAVE_V210
+
 %if HIGH_BIT_DEPTH
 INIT_MMX mmx2
 PLANE_INTERLEAVE
@@ -1203,9 +1247,13 @@ PLANE_DEINTERLEAVE
 INIT_XMM sse2
 PLANE_INTERLEAVE
 PLANE_DEINTERLEAVE
+PLANE_DEINTERLEAVE_V210
+INIT_XMM ssse3
+PLANE_DEINTERLEAVE_V210	
 INIT_XMM avx
 PLANE_INTERLEAVE
 PLANE_DEINTERLEAVE
+PLANE_DEINTERLEAVE_V210		
 %else
 INIT_MMX mmx2
 PLANE_INTERLEAVE

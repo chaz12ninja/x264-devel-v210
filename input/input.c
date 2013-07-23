@@ -37,6 +37,7 @@ const x264_cli_csp_t x264_cli_csps[] = {
     [X264_CSP_BGR]  = { "bgr",  1, { 3 },         { 1 },         1, 1 },
     [X264_CSP_BGRA] = { "bgra", 1, { 4 },         { 1 },         1, 1 },
     [X264_CSP_RGB]  = { "rgb",  1, { 3 },         { 1 },         1, 1 },
+    [X264_CSP_V210] = { "v210", 1, { 1 },         { 1 },         1, 1 },
 };
 
 int x264_cli_csp_is_invalid( int csp )
@@ -47,9 +48,11 @@ int x264_cli_csp_is_invalid( int csp )
 
 int x264_cli_csp_depth_factor( int csp )
 {
-    if( x264_cli_csp_is_invalid( csp ) )
+    if( x264_cli_csp_is_invalid( csp ))
         return 0;
-    return (csp & X264_CSP_HIGH_DEPTH) ? 2 : 1;
+    if ( ( csp & X264_CSP_MASK ) == X264_CSP_V210 )
+        return 4;
+    return ( csp & X264_CSP_HIGH_DEPTH ) ? 2 : 1;
 }
 
 uint64_t x264_cli_pic_plane_size( int csp, int width, int height, int plane )
@@ -57,9 +60,17 @@ uint64_t x264_cli_pic_plane_size( int csp, int width, int height, int plane )
     int csp_mask = csp & X264_CSP_MASK;
     if( x264_cli_csp_is_invalid( csp ) || plane < 0 || plane >= x264_cli_csps[csp_mask].planes )
         return 0;
-    uint64_t size = (uint64_t)width * height;
-    size *= x264_cli_csps[csp_mask].width[plane] * x264_cli_csps[csp_mask].height[plane];
-    size *= x264_cli_csp_depth_factor( csp );
+    uint64_t size = (uint64_t)width;
+    if ( csp_mask == X264_CSP_V210 ) 
+    {
+        size = ( size + 47 ) / 48 * 32;
+        size *= x264_cli_csp_depth_factor( csp );
+        size *= height;
+    } else {
+        size *= x264_cli_csps[csp_mask].width[plane] * x264_cli_csps[csp_mask].height[plane];
+        size *= x264_cli_csp_depth_factor( csp );
+        size *= height;
+    }
     return size;
 }
 
@@ -90,7 +101,10 @@ int x264_cli_pic_alloc( cli_pic_t *pic, int csp, int width, int height )
          pic->img.plane[i] = x264_malloc( x264_cli_pic_plane_size( csp, width, height, i ) );
          if( !pic->img.plane[i] )
              return -1;
-         pic->img.stride[i] = width * x264_cli_csps[csp_mask].width[i] * x264_cli_csp_depth_factor( csp );
+	 if( csp_mask == X264_CSP_V210 ) 
+             pic->img.stride[i] = ( width + 47 ) / 48 * 32 * x264_cli_csp_depth_factor( csp );
+	 else
+	     pic->img.stride[i] = width * x264_cli_csps[csp_mask].width[i] * x264_cli_csp_depth_factor( csp );
     }
 
     return 0;

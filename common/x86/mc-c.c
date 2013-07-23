@@ -116,6 +116,16 @@ void x264_plane_copy_deinterleave_ssse3( uint8_t *dstu, intptr_t i_dstu,
 void x264_plane_copy_deinterleave_avx( uint16_t *dstu, intptr_t i_dstu,
                                        uint16_t *dstv, intptr_t i_dstv,
                                        uint16_t *src,  intptr_t i_src, int w, int h );
+void x264_plane_copy_deinterleave_v210_core_sse2( pixel *dsty,
+                                                  pixel *dstc, 
+                                                  uint32_t *src, int w );
+void x264_plane_copy_deinterleave_v210_core_ssse3( pixel *dsty,
+                                                   pixel *dstc,
+                                                   uint32_t *src, int w );
+void x264_plane_copy_deinterleave_v210_core_avx( pixel *dsty,
+                                                 pixel *dstc,
+                                                 uint32_t *src, int w );
+
 void x264_store_interleave_chroma_mmx2( pixel *dst, intptr_t i_dst, pixel *srcu, pixel *srcv, int height );
 void x264_store_interleave_chroma_sse2( pixel *dst, intptr_t i_dst, pixel *srcu, pixel *srcv, int height );
 void x264_store_interleave_chroma_avx ( pixel *dst, intptr_t i_dst, pixel *srcu, pixel *srcv, int height );
@@ -516,6 +526,65 @@ PLANE_INTERLEAVE(sse2)
 PLANE_INTERLEAVE(avx)
 #endif
 
+#define READ_PIXELS_V210( a, b, c )         \
+    do {                             \
+        val  = ( *src++ );   \
+        *a++ =  val & 0x3FF;         \
+        *b++ = ( val >> 10 ) & 0x3FF;  \
+        *c++ = ( val >> 20 ) & 0x3FF;  \
+    } while( 0 )
+
+#define PLANE_DEINTERLEAVE_V210( cpu ) \
+void x264_plane_copy_deinterleave_v210_##cpu( pixel *dsty, intptr_t i_dsty, \
+                                              pixel *dstc, intptr_t i_dstc, \
+                                              uint32_t *src, intptr_t i_src, int w, int h) { \
+    int y = 0; \
+    uint32_t val; \
+    uint32_t *tsrc; \
+    pixel *ty, *tc; \
+ \
+    for( y=0; y < h; y++ ) \
+    { \
+        tsrc = src; \
+        ty = dsty; \
+        tc = dstc; \
+ \
+        x264_plane_copy_deinterleave_v210_core_##cpu( dsty, dstc, src, w ); \
+ \
+        dsty += w; \
+        dstc += w; \
+        src += ( w << 1 ) / 3; \
+     \
+        if( w < i_dsty - 1 ) \
+        { \
+            READ_PIXELS_V210( dstc, dsty, dstc ); \
+\
+            val = *src++; \
+            *dsty++ = val & 0x3FF; \
+ \
+            if( w < i_dsty - 3 ) \
+            { \
+                *dstc++ = ( val >> 10 ) & 0x3FF; \
+                *dsty++ = ( val >> 20 ) & 0x3FF; \
+ \
+                val = *src++; \
+                *dstc++ = (val >> 00) & 0x3FF; \
+                *dsty++ = (val >> 10) & 0x3FF; \
+            } \
+        } \
+ \
+        src = tsrc + i_src; \
+        dsty = ty + i_dsty; \
+        dstc = tc + i_dstc; \
+    } \
+}
+
+#if HIGH_BIT_DEPTH
+PLANE_DEINTERLEAVE_V210(sse2)
+PLANE_DEINTERLEAVE_V210(ssse3)
+PLANE_DEINTERLEAVE_V210(avx)
+#endif
+
 void x264_mc_init_mmx( int cpu, x264_mc_functions_t *pf )
 {
     if( !(cpu&X264_CPU_MMX) )
@@ -589,6 +658,7 @@ void x264_mc_init_mmx( int cpu, x264_mc_functions_t *pf )
 
     pf->plane_copy_interleave   = x264_plane_copy_interleave_sse2;
     pf->plane_copy_deinterleave = x264_plane_copy_deinterleave_sse2;
+    pf->plane_copy_deinterleave_v210 = x264_plane_copy_deinterleave_v210_sse2;
 
     if( cpu&X264_CPU_SSE2_IS_FAST )
     {
@@ -628,6 +698,8 @@ void x264_mc_init_mmx( int cpu, x264_mc_functions_t *pf )
 
     pf->frame_init_lowres_core = x264_frame_init_lowres_core_ssse3;
 
+    pf->plane_copy_deinterleave_v210 = x264_plane_copy_deinterleave_v210_ssse3;
+
     if( !(cpu&(X264_CPU_SLOW_SHUFFLE|X264_CPU_SLOW_ATOM|X264_CPU_SLOW_PALIGNR)) )
         pf->integral_init4v = x264_integral_init4v_ssse3;
 
@@ -639,6 +711,7 @@ void x264_mc_init_mmx( int cpu, x264_mc_functions_t *pf )
     pf->load_deinterleave_chroma_fdec = x264_load_deinterleave_chroma_fdec_avx;
     pf->plane_copy_interleave        = x264_plane_copy_interleave_avx;
     pf->plane_copy_deinterleave      = x264_plane_copy_deinterleave_avx;
+    pf->plane_copy_deinterleave_v210 = x264_plane_copy_deinterleave_v210_avx;
     pf->store_interleave_chroma      = x264_store_interleave_chroma_avx;
     pf->copy[PIXEL_16x16]            = x264_mc_copy_w16_aligned_avx;
 

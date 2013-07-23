@@ -217,7 +217,8 @@ static const char * const x264_nal_hrd_names[] = { "none", "vbr", "cbr", 0 };
 #define X264_CSP_BGR            0x0009  /* packed bgr 24bits   */
 #define X264_CSP_BGRA           0x000a  /* packed bgr 32bits   */
 #define X264_CSP_RGB            0x000b  /* packed rgb 24bits   */
-#define X264_CSP_MAX            0x000c  /* end of list */
+#define X264_CSP_V210           0x000c  /* 10-bit yuv 4:2:2 packed in 32 */
+#define X264_CSP_MAX            0x000d  /* end of list */
 #define X264_CSP_VFLIP          0x1000  /* the csp is vertically flipped */
 #define X264_CSP_HIGH_DEPTH     0x2000  /* the csp has a depth of 16 bits per pixel component */
 

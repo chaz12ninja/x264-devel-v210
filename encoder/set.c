@@ -104,7 +104,8 @@ void x264_sps_init( x264_sps_t *sps, int i_id, x264_param_t *param )
     sps->i_id = i_id;
     sps->i_mb_width = ( param->i_width + 15 ) / 16;
     sps->i_mb_height= ( param->i_height + 15 ) / 16;
-    sps->i_chroma_format_idc = csp >= X264_CSP_I444 ? CHROMA_444 :
+    sps->i_chroma_format_idc = csp == X264_CSP_V210 ? CHROMA_422 : 
+                               csp >= X264_CSP_I444 ? CHROMA_444 :
                                csp >= X264_CSP_I422 ? CHROMA_422 : CHROMA_420;
 
     sps->b_qpprime_y_zero_transform_bypass = param->rc.i_rc_method == X264_RC_CQP && param->rc.i_qp_constant == 0;
